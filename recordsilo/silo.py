@@ -53,6 +53,16 @@ class HarvestedRecord(object):
         self.versions=None
         self.currentversion=None
     
+    def __setattribute__(self,name, value):
+        if name not in ['files', 'versions', 'currentversion', 'date']:
+            if name == "metadata":
+                self.manifest['metadata'] = value
+            else:
+                return object.__setattribute__(self, name, value)
+        else:
+            logger.error("Attribute %s cannot be set in this manner" % name)
+            raise Exception
+    
     def __getattribute__(self,name):
         if name=='files':
             return self.manifest['files'][self.manifest['currentversion']]
@@ -62,6 +72,10 @@ class HarvestedRecord(object):
             return self.manifest['currentversion']
         elif name=='date':
             return self.manifest['date']
+        elif name=='metadata':
+            if not self.manifest.has_key('metadata'):
+                self.manifest['metadata'] = {}
+            return self.manifest['metadata']
         else:
             return object.__getattribute__(self, name)
 
@@ -351,4 +365,6 @@ class Silo(object):
     def del_item(self, item_id):
         return self._store.delete_object(item_id)
 
+    def list_items(self):
+        return self._store.list_ids()
 

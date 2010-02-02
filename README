@@ -138,4 +138,35 @@ True
 >>> p.date
 u'2010-02-02T16:51:45.890655'
 
+The JSON metadata
 
+>>> p.metadata
+{}
+>>> p.metadata['dc:title'] = "Shakespearean sonnet"
+>>> p.metadata
+{'dc:title': 'Shakespearean sonnet'}
+>>> p.sync()
+
+Syncing to and reverting from disc
+
+>>> # Metadata can be any data structure expressible in JSON
+>>> p.metadata['listandDictdata'] = {'foo':['bar', 'baa', 'baaaaa'], 'sna':'fu'}
+>>> p.metadata
+{'listandDictdata': {'foo': ['bar', 'baa', 'baaaaa'], 'sna': 'fu'}, 'dc:title': 'Shakespearean sonnet'}
+>>> The JSON manifest
+>>> p
+{'files': {'1': []}, 'versions': ['1'], 'date': '2010-02-02T17:39:50.282308', 'currentversion': '1', 'metadata_files': {'1': []}, 'item_id': '7', 'version_dates': {'1': '2010-02-02T17:39:50.282308'}, 'metadata': {'listandDictdata': {'foo': ['bar', 'baa', 'baaaaa'], 'sna': 'fu'}, 'dc:title': 'Shakespearean sonnet'}}
+>>> # Sync the JSON manifest to disc
+>>> p.sync()
+
+
+>>> p.metadata['rubbish'] = "Whoops"
+>>> p.metadata
+{'listandDictdata': {'foo': ['bar', 'baa', 'baaaaa'], 'sna': 'fu'}, 'dc:title': 'Shakespearean sonnet', 'rubbish': 'Whoops'}
+
+>>> # Reverting the manifest from the disc version.
+>>> p.revert()
+>>> p.metadata
+{'listandDictdata': {'foo': ['bar', 'baa', 'baaaaa'], 'sna': 'fu'}, 'dc:title': 'Shakespearean sonnet'}
+
+NB all stream writes cause a sync()
