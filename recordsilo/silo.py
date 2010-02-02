@@ -2,6 +2,8 @@
 
 # OAIPMH Scraper
 
+from __future__ import with_statement
+
 from persiststate import PersistentState
 
 from pairtree import PairtreeStorageClient
@@ -11,6 +13,8 @@ from pairtree import FileNotFoundException
 from datetime import datetime
 
 from os import path, mkdir
+
+from shutil import copy2
 
 import simplejson
 
@@ -120,6 +124,14 @@ class HarvestedRecord(object):
         except:
             return latest_version + "_new"
 
+    def _copy_version(self, latest_version, new_version):
+        for x in self.manifest['files'][latest_version]:
+            with self.get_stream(x, version=latest_version) as stream:
+                metadata = False
+                if x in self.manifest['metadata_files'][latest_version]:
+                    metadata = True
+                self.add_stream(x, stream, metadata=metadata)
+
     def path_to_item(self):
         return self.po.fs._id_to_dirpath(self.po.id)
     
@@ -173,9 +185,11 @@ class HarvestedRecord(object):
         self.sync()
         return self.po.add_bytestream_by_path(path.join(str(self.manifest['currentversion']), filename), stream)
     
-    def get_stream(self, filename):
-        if filename in self.manifest['files'][self.manifest['currentversion']]:
-            return self.po.get_bytestream_by_path(path.join(str(self.manifest['currentversion']), filename),
+    def get_stream(self, filename, version=None):
+        if not version:
+            version = self.manifest['currentversion']
+        if filename in self.manifest['files'][version]:
+            return self.po.get_bytestream_by_path(path.join(str(version), filename),
                                                   streamable=True)
         else:
             raise FileNotFoundException
@@ -209,21 +223,35 @@ class HarvestedRecord(object):
         if not date:
             date = datetime.now().isoformat()
         self.manifest['date'] = date
-        latest_version = self.manifest['versions'][-1]
+        latest_version = self.manifest['currentversion']
         new_version = self._incr_version(latest_version)
         self._setup_version_dir(new_version, date)
-        if clone_previous_version:
-            logger.error("Sorry, cloning is a TODO atm")
-            pass
-        self.manifest['currentversion'] = new_version
+        self.set_version_cursor(new_version)
         self._read_date()
+        if clone_previous_version:
+            self._copy_version(latest_version, new_version)
         self.sync()
         return new_version
-    
+
+    def clone_version(self, original_version, new_version):
+        if original_version in self.manifest['versions']:
+            date = self.manifest['version_dates'][original_version]
+            self._setup_version_dir(new_version, date)
+            self.set_version_cursor(new_version)
+            self._read_date()
+            self._copy_version(original_version, new_version)
+            self.sync()
+            return new_version
+        else:
+            logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
+            return False
+
     def create_new_version(self, version, date=None):
         version = str(version)
         if version not in self.manifest['versions']:
             self._setup_version_dir(version, date)
+            self.set_version_cursor(version)
+            self.sync()
         else:
             logger.error("Cannot create new version %s - version directory already exists" % version)
 
