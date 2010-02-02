@@ -12,7 +12,7 @@ from pairtree import FileNotFoundException
 
 from datetime import datetime
 
-from os import path, mkdir
+from os import path, mkdir, rename
 
 from shutil import copy2
 
@@ -60,6 +60,8 @@ class HarvestedRecord(object):
             return self.manifest['versions']
         elif name=='currentversion':
             return self.manifest['currentversion']
+        elif name=='date':
+            return self.manifest['date']
         else:
             return object.__getattribute__(self, name)
 
@@ -130,11 +132,11 @@ class HarvestedRecord(object):
                 metadata = False
                 if x in self.manifest['metadata_files'][latest_version]:
                     metadata = True
-                self.add_stream(x, stream, metadata=metadata)
+                self.put_stream(x, stream, metadata=metadata)
 
     def path_to_item(self):
         return self.po.fs._id_to_dirpath(self.po.id)
-    
+
     def revert(self, **kw):
         if not path.isdir(self.itempath):
             logger.error("Path to harvested item does not exist")
@@ -177,7 +179,7 @@ class HarvestedRecord(object):
         self.manifest.revert()
         self._init_manifests_emptydatastructures()
     
-    def add_stream(self, filename, stream, metadata=True):
+    def put_stream(self, filename, stream, metadata=True):
         if metadata and filename not in self.manifest['metadata_files'][self.manifest['currentversion']]:
             self.manifest['metadata_files'][self.manifest['currentversion']].append(filename)
         if filename not in self.manifest['files'][self.manifest['currentversion']]:
@@ -185,12 +187,14 @@ class HarvestedRecord(object):
         self.sync()
         return self.po.add_bytestream_by_path(path.join(str(self.manifest['currentversion']), filename), stream)
     
-    def get_stream(self, filename, version=None):
+    def get_stream(self, filename, version=None, writeable=False):
+        """NB If writeable is set to True, then the file is opened "wb+" and can accept writes.
+        Otherwise, the file is opened read-only."""
         if not version:
             version = self.manifest['currentversion']
         if filename in self.manifest['files'][version]:
             return self.po.get_bytestream_by_path(path.join(str(version), filename),
-                                                  streamable=True)
+                                                  streamable=True, appendable=writeable)
         else:
             raise FileNotFoundException
     
@@ -244,6 +248,24 @@ class HarvestedRecord(object):
             return new_version
         else:
             logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
+            return False
+
+    def rename_version(self, original_version, new_name):
+        if original_version in self.manifest['versions']:
+            self.manifest['versions'].append(new_name)
+            self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
+            self.manifest['files'][new_name] = self.manifest['files'][original_version]
+            self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
+            rename(path.join(self.path_to_item(), original_version), path.join(self.path_to_item(), new_name))
+            self.set_version_cursor(new_name)
+            self.manifest['versions'].remove(original_version)
+            del self.manifest['version_dates'][original_version]
+            del self.manifest['files'][original_version]
+            del self.manifest['metadata_files'][original_version]
+            self.sync()
+            return new_name
+        else:
+            logger.error("Version %s is not found in the object. Cannot be renamed" % original_version)
             return False
 
     def create_new_version(self, version, date=None):
