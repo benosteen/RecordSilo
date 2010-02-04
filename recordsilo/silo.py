@@ -94,7 +94,7 @@ class HarvestedRecord(object):
         self.manifest['metadata_files'][version] = []
         self.manifest['files'][version] = []
         self.set_version_date(version, date)
-        self.po.add_bytestream_by_path(path.join(str(version), "4=%s" % id_encode(self.item_id)), self.item_id)
+        self.po.add_bytestream_by_path(path.join("__"+str(version), "4=%s" % id_encode(self.item_id)), self.item_id)
 
     def _init_manifests_emptydatastructures(self):
         self.item_id = self.manifest['item_id']
@@ -110,7 +110,7 @@ class HarvestedRecord(object):
         if self.manifest['files'].has_key(version) and version in self.manifest['versions']:
             self.manifest['files'][version] = []
             # init from disc
-            for filename in [x for x in self.po.list_parts(version) if NAMASTE_PATTERN.match(x) != None]:
+            for filename in [x for x in self.po.list_parts("__"+version) if NAMASTE_PATTERN.match(x) != None]:
                 self.manifest['files'][version].append(filename)
 
     def _init_manifest(self):
@@ -127,7 +127,7 @@ class HarvestedRecord(object):
     def _read_date(self, version = None):
         if not version:
             version = self.manifest['currentversion']
-        date_namaste_tags = [x for x in self.po.list_parts(str(version)) if x.startswith("3=")]
+        date_namaste_tags = [x for x in self.po.list_parts("__"+str(version)) if x.startswith("3=")]
         if len(date_namaste_tags) >= 1:
             lmd = date_namaste_tags.pop()[2:]   # take the first tag and remove the '3='
             lmd = id_decode(lmd)                # reverse the 'pairtree' encoding of the date
@@ -198,16 +198,17 @@ class HarvestedRecord(object):
             self.manifest['metadata_files'][self.manifest['currentversion']].append(filename)
         if filename not in self.manifest['files'][self.manifest['currentversion']]:
             self.manifest['files'][self.manifest['currentversion']].append(filename)
+        self.po.add_bytestream_by_path(path.join("__" + str(self.manifest['currentversion']), filename), stream)
+        self._reload_filelist(version)
         self.sync()
-        return self.po.add_bytestream_by_path(path.join(str(self.manifest['currentversion']), filename), stream)
-    
+        return 
     def get_stream(self, filename, version=None, writeable=False):
         """NB If writeable is set to True, then the file is opened "wb+" and can accept writes.
         Otherwise, the file is opened read-only."""
         if not version:
             version = self.manifest['currentversion']
         if filename in self.manifest['files'][version]:
-            return self.po.get_bytestream_by_path(path.join(str(version), filename),
+            return self.po.get_bytestream_by_path(path.join("__" + str(version), filename),
                                                   streamable=True, appendable=writeable)
         else:
             raise FileNotFoundException
@@ -217,7 +218,7 @@ class HarvestedRecord(object):
             versions = [self.manifest['currentversion']]
         for version in versions:
             try:
-                self.po.del_file_by_path(path.join(str(version), filename))
+                self.po.del_file_by_path(path.join("__" + str(version), filename))
                 if filename in self.manifest['metadata_files'][version]: 
                     self.manifest['metadata_files'][version].remove(filename)
                 self._reload_filelist(version)
@@ -270,7 +271,7 @@ class HarvestedRecord(object):
             self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
             self.manifest['files'][new_name] = self.manifest['files'][original_version]
             self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
-            rename(path.join(self.path_to_item(), original_version), path.join(self.path_to_item(), new_name))
+            rename(path.join(self.path_to_item(), "__"+str(original_version)), path.join(self.path_to_item(), "__" + str(new_name)))
             self.set_version_cursor(new_name)
             self.manifest['versions'].remove(original_version)
             del self.manifest['version_dates'][original_version]
@@ -310,7 +311,7 @@ class HarvestedRecord(object):
                 self._read_date()
                 self._setup_version_dir(version, date)
             self.sync()
-            return self.po.del_path(version, recursive=True)
+            return self.po.del_path("__"+str(version), recursive=True)
 
     def del_versions(self, versions=[]):
         results = []
@@ -321,7 +322,7 @@ class HarvestedRecord(object):
     def set_version_date(self, version, date):
         if version in self.manifest['versions']:
             self.manifest['version_dates'][version] = date
-            self.po.add_bytestream_by_path(path.join(str(version), "3=%s" % id_encode(date)), date)
+            self.po.add_bytestream_by_path(path.join("__"+str(version), "3=%s" % id_encode(date)), date)
             return True
         else:
             logger.error("Version %s does not exist" % version)
@@ -358,9 +359,9 @@ class Silo(object):
     def exists(self, item_id):
         return self._store.exists(item_id)
 
-    def get_item(self, item_id):
+    def get_item(self, item_id, date=None):
         p_obj = self._store.get_object(item_id)
-        return HarvestedRecord(p_obj)
+        return HarvestedRecord(p_obj, date)
 
     def del_item(self, item_id):
         return self._store.delete_object(item_id)
