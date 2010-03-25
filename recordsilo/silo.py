@@ -91,6 +91,7 @@ class HarvestedRecord(object):
         if version not in self.manifest['versions']:
             self.manifest['versions'].append(version)
         self.manifest['version_dates'][version] = date
+        self.manifest['subdir'][version] = []
         self.manifest['metadata_files'][version] = []
         self.manifest['files'][version] = []
         self.set_version_date(version, date)
@@ -100,17 +101,25 @@ class HarvestedRecord(object):
         self.item_id = self.manifest['item_id']
         if not self.manifest.has_key('metadata_files'):
             self.manifest['metadata_files'] = {}
+        if not self.manifest.has_key('subdir'):
+            self.manifest['subdir'] = {}
         if not self.manifest.has_key('files'):
             self.manifest['files'] = {}
         for version in self.manifest['versions']:
             if not self.manifest['metadata_files'].has_key(version):
                 self.manifest['metadata_files'][version] = []
+            if not self.manifest['subdir'].has_key(version):
+                self.manifest['subdir'][version] = []
 
     def _reload_filelist(self, version):
         if self.manifest['files'].has_key(version) and version in self.manifest['versions']:
             self.manifest['files'][version] = []
+            self.manifest['subdir'][version] = []
             # init from disc
-            for filename in [x for x in self.po.list_parts("__"+version) if NAMASTE_PATTERN.match(x) != None]:
+            for filename in [x for x in self.po.list_parts("__"+str(version)) if not (x.startswith("0=") or x.startswith("1=") or x.startswith("2=") or x.startswith("3=") or x.startswith("4=") or x.startswith("5=")) ]:
+                logger.debug("Item %s has file: %s" % (self.item_id, x) )
+                if self.po.isdir(path.join("__"+str(version), filename)):
+                    self.manifest['subdir'][version].append(filename)
                 self.manifest['files'][version].append(filename)
 
     def _init_manifest(self):
@@ -120,6 +129,7 @@ class HarvestedRecord(object):
         self.manifest['item_id'] = self.po.id
         self.manifest['versions'] = []
         self.manifest['version_dates'] = {}
+        self.manifest['subdir'] = {}
         self.manifest['currentversion'] = "1"
         self._setup_version_dir("1", self.manifest['date'])
         self.manifest.sync()
@@ -193,12 +203,13 @@ class HarvestedRecord(object):
         self.manifest.revert()
         self._init_manifests_emptydatastructures()
     
-    def put_stream(self, filename, stream, metadata=True):
-        if metadata and filename not in self.manifest['metadata_files'][self.manifest['currentversion']]:
-            self.manifest['metadata_files'][self.manifest['currentversion']].append(filename)
-        if filename not in self.manifest['files'][self.manifest['currentversion']]:
-            self.manifest['files'][self.manifest['currentversion']].append(filename)
-        self.po.add_bytestream_by_path(path.join("__" + str(self.manifest['currentversion']), filename), stream)
+    def put_stream(self, filename, stream, metadata=False):
+        version = self.manifest['currentversion']
+        if metadata and filename not in self.manifest['metadata_files'][version]:
+            self.manifest['metadata_files'][version].append(filename)
+        if filename not in self.manifest['files'][version]:
+            self.manifest['files'][version].append(filename)
+        self.po.add_bytestream_by_path(path.join("__" + str(version), filename), stream)
         self._reload_filelist(version)
         self.sync()
         return 
@@ -207,7 +218,7 @@ class HarvestedRecord(object):
         Otherwise, the file is opened read-only."""
         if not version:
             version = self.manifest['currentversion']
-        if filename in self.manifest['files'][version]:
+        if self.isfile(filename, version):
             return self.po.get_bytestream_by_path(path.join("__" + str(version), filename),
                                                   streamable=True, appendable=writeable)
         else:
@@ -219,12 +230,26 @@ class HarvestedRecord(object):
         for version in versions:
             try:
                 self.po.del_file_by_path(path.join("__" + str(version), filename))
-                if filename in self.manifest['metadata_files'][version]: 
+                if self.isfile(filename, version):
                     self.manifest['metadata_files'][version].remove(filename)
                 self._reload_filelist(version)
             except FileNotFoundException:
                 logger.info("File %s not found at version %s and so cannot be deleted" % (filename, version))
         self.sync()
+
+    def isfile(self, filepath, version=None):
+        if not version:
+            version = self.manifest['currentversion']
+        return self.po.isfile(path.join("__"+str(version), filepath))
+
+    def isdir(self, filepath, version=None):
+        if not version:
+            version = self.manifest['currentversion']
+        return self.po.isdir(path.join("__"+str(version),filepath))
+
+    def list_parts(self, subpath):
+        if self.isdir(subpath):
+            return self.po.list_parts(path.join("__"+str(self.manifest['currentversion']),subpath))
 
     def set_version_cursor(self, version):
         if version in self.manifest['versions']:
@@ -356,6 +381,21 @@ class Silo(object):
             logger.error("Cannot setup the state persistence file at %s/%s" % (self.state['storage_dir'], PERSISTENCE_FILENAME))
             raise Exception("Cannot setup the state persistence file at %s/%s" % (self.state['storage_dir'], PERSISTENCE_FILENAME))
 
+    def __iter__(self):
+        return self.list_items()
+
+    def iteritems(self):
+        for item in self.list_items():
+            yield self.get_item(item)
+
+    def __getitem__(self, key):
+        if self.exists(key):
+            return self.get_item(key)
+
+    def __len__(self): return len(self.keys())
+
+    def keys(self): return [x for x in self.__iter__()]
+    def has_key(self, key): return self.exists(key)
     def exists(self, item_id):
         return self._store.exists(item_id)
 
