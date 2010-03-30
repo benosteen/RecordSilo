@@ -8,7 +8,7 @@ from persiststate import PersistentState
 
 from pairtree import PairtreeStorageClient
 from pairtree import id_encode, id_decode
-from pairtree import FileNotFoundException
+from pairtree import FileNotFoundException, ObjectNotFoundException
 
 from datetime import datetime
 
@@ -150,13 +150,22 @@ class HarvestedRecord(object):
         except:
             return latest_version + "_new"
 
-    def _copy_version(self, latest_version, new_version):
-        for x in self.manifest['files'][latest_version]:
-            with self.get_stream(x, version=latest_version) as stream:
-                metadata = False
-                if x in self.manifest['metadata_files'][latest_version]:
-                    metadata = True
-                self.put_stream(x, stream, metadata=metadata)
+    def _copy_version(self, latest_version, new_version, exclude_filenames=[]):
+        version_state = self.manifest.currentversion
+        self.set_version_cursor(new_version)
+        for x in [y for y in self.manifest['files'][latest_version] if y not in exclude_filenames]:
+            self._copy_file(x, latest_version, new_version, sync=False)
+        self.set_version_cursor(version_state)
+        self.sync()
+    
+    def _copy_file(self, filename, latest_version, new_version, sync = True):
+        with self.get_stream(x, version=latest_version) as stream:
+            metadata = False
+            if x in self.manifest['metadata_files'][latest_version]:
+                metadata = True
+            self.put_stream(x, stream, metadata=metadata)
+        if sync:
+            self.sync()
 
     def path_to_item(self):
         return self.po.fs._id_to_dirpath(self.po.id)
@@ -277,18 +286,22 @@ class HarvestedRecord(object):
         self.sync()
         return new_version
 
-    def clone_version(self, original_version, new_version):
+    def clone_version(self, original_version, new_version, exclude_filenames=[]):
         if original_version in self.manifest['versions']:
             date = self.manifest['version_dates'][original_version]
             self._setup_version_dir(new_version, date)
             self.set_version_cursor(new_version)
             self._read_date()
-            self._copy_version(original_version, new_version)
+            self._copy_version(original_version, new_version, exclude_filenames)
             self.sync()
             return new_version
         else:
             logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
             return False
+
+    def copy_file_between_versions(self, filename, from_version, to_version):
+        if from_version in self.manifest['versions'] and to_version in self.manifest['version'] and filename in self.manifest['files'][from_version]:
+            self._copy_file(filename, from_version, to_version)
 
     def rename_version(self, original_version, new_name):
         if original_version in self.manifest['versions']:
@@ -399,12 +412,24 @@ class Silo(object):
     def exists(self, item_id):
         return self._store.exists(item_id)
 
-    def get_item(self, item_id, date=None):
-        p_obj = self._store.get_object(item_id)
-        return HarvestedRecord(p_obj, date)
+    def get_item(self, item_id, date=None, force=False):
+        if self.exists(item_id):
+            p_obj = self._store.get_object(item_id)
+            return HarvestedRecord(p_obj, date)
+        elif self.exists(self.state['uri_base'] + item_id) and not force:
+            p_obj = self._store.get_object(self.state['uri_base'] + item_id)
+            return HarvestedRecord(p_obj, date)
+        else:
+            p_obj = self._store.get_object(item_id)
+            return HarvestedRecord(p_obj, date)
 
     def del_item(self, item_id):
-        return self._store.delete_object(item_id)
+        if self.exists(item_id):
+            return self._store.delete_object(item_id)
+        elif self.exists(self.state['uri_base'] + item_id):
+            return self._store.delete_object(self.state['uri_base'] + item_id)
+        else:
+            raise ObjectNotFoundException
 
     def list_items(self):
         return self._store.list_ids()
