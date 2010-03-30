@@ -159,11 +159,11 @@ class HarvestedRecord(object):
         self.sync()
     
     def _copy_file(self, filename, latest_version, new_version, sync = True):
-        with self.get_stream(x, version=latest_version) as stream:
+        with self.get_stream(filename, version=latest_version) as stream:
             metadata = False
-            if x in self.manifest['metadata_files'][latest_version]:
+            if filename in self.manifest['metadata_files'][latest_version]:
                 metadata = True
-            self.put_stream(x, stream, metadata=metadata)
+            self.put_stream(filename, stream, metadata=metadata)
         if sync:
             self.sync()
 
@@ -300,7 +300,7 @@ class HarvestedRecord(object):
             return False
 
     def copy_file_between_versions(self, filename, from_version, to_version):
-        if from_version in self.manifest['versions'] and to_version in self.manifest['version'] and filename in self.manifest['files'][from_version]:
+        if from_version in self.manifest['versions'] and to_version in self.manifest['versions'] and filename in self.manifest['files'][from_version]:
             self._copy_file(filename, from_version, to_version)
 
     def rename_version(self, original_version, new_name):
