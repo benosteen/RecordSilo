@@ -218,10 +218,10 @@ class HarvestedRecord(object):
             self.manifest['metadata_files'][version].append(filename)
         if filename not in self.manifest['files'][version]:
             self.manifest['files'][version].append(filename)
-        self.po.add_bytestream_by_path(path.join("__" + str(version), filename), stream)
+        resp = self.po.add_bytestream_by_path(path.join("__" + str(version), filename), stream)
         self._reload_filelist(version)
         self.sync()
-        return 
+        return resp
     def get_stream(self, filename, version=None, writeable=False):
         """NB If writeable is set to True, then the file is opened "wb+" and can accept writes.
         Otherwise, the file is opened read-only."""
@@ -256,7 +256,7 @@ class HarvestedRecord(object):
             version = self.manifest['currentversion']
         return self.po.isdir(path.join("__"+str(version),filepath))
 
-    def list_parts(self, subpath):
+    def list_parts(self, subpath=""):
         if self.isdir(subpath):
             return self.po.list_parts(path.join("__"+str(self.manifest['currentversion']),subpath))
 
@@ -382,7 +382,10 @@ class Silo(object):
         
     def _init_storage(self):
         try:
-            self._store = PairtreeStorageClient(self.state['uri_base'], self.state['storage_dir'], shorty_length=2)
+            if "hashing_type" in self.state.keys():
+                self._store = PairtreeStorageClient(self.state['uri_base'], self.state['storage_dir'], shorty_length=2, hashing_type=self.state['hashing_type'])
+            else:
+                self._store = PairtreeStorageClient(self.state['uri_base'], self.state['storage_dir'], shorty_length=2)
             if not self.state.set_filepath(self.state['storage_dir']):
                 raise Exception
             else:
