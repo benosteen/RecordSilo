@@ -257,9 +257,16 @@ class HarvestedRecord(object):
             version = self.manifest['currentversion']
         return self.po.isdir(os.path.join("__"+str(version),filepath))
 
-    def list_parts(self, subpath=""):
+    def list_parts(self, subpath="", detailed=False):
         if self.isdir(subpath):
-            return self.po.list_parts(os.path.join("__"+str(self.manifest['currentversion']),subpath))
+            parts = self.po.list_parts(os.path.join("__"+str(self.manifest['currentversion']),subpath))
+            if detailed:
+                d_parts = {}
+                for part in parts:
+                    d_parts[part] = self.stat(os.path.join("__"+str(self.manifest['currentversion']),subpath, part))
+                return d_parts
+            else:
+                return parts
     
     def to_dirpath(self, filepath=None, version=None):
         if not version:
@@ -272,7 +279,7 @@ class HarvestedRecord(object):
     def stat(self, filepath, version=None):
         if not version:
             version = self.currentversion
-        return self.po.stat(filepath)
+        return self.po.stat(os.path.join("__%s" % version, filepath))
 
     def set_version_cursor(self, version):
         if version in self.manifest['versions']:
@@ -432,6 +439,10 @@ class RDFRecord(HarvestedRecord):
             self.load_rdf_manifest()
         return self._rdfmanifest
 
+    def triple_exists(self, s, p, o):
+        return self._rdfmanifest.triple_exists(s,p,o)
+    def list_rdf_objects(self, s, p):
+        return self._rdfmanifest.list_objects(s,p)
     def add_triple(self, s, p, o):
         return self._rdfmanifest.add_triple(s,p,o)
     def add_namespace(self, prefix, uri):
@@ -451,10 +462,19 @@ class RDFRecord(HarvestedRecord):
     ## Classes to annotate with rdf manifest updating
     
     def put_stream(self, filename, filetostream, version=None, metadata=False, sync=True):
-        super(RDFRecord, self).put_stream(self, filename, filetostream, version=version, metadata=metadata, sync=False)
-        self.add_triple(self.uri, "ore:aggregates", "%s/%s" % (self.uri, filename))
+        super(RDFRecord, self).put_stream(filename, filetostream, version=version, metadata=metadata, sync=False)
+        if filename == self.manifest['rdffilename']:
+            self.load_rdf_manifest()
+        else:
+            self.add_triple(self.uri, "ore:aggregates", "%s/%s" % (self.uri, filename))
         if sync:
             self.sync()
+    
+    def del_stream(self, filename, versions=[]):
+        super(RDFRecord, self).del_stream(filename, versions=versions)
+        if self.currentversion in versions or not versions:
+            self.del_triple(self.uri, "ore:aggregates", "%s/%s" % (self.uri, filename))
+        self.sync()
     
     def set_version_cursor(self, version):
         super(RDFRecord, self).set_version_cursor(version)
