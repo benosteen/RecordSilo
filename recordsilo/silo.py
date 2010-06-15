@@ -14,7 +14,7 @@ from datetime import datetime
 
 from os import path, mkdir, rename, listdir
 
-from shutil import copy2
+from shutil import copy2, rmtree
 
 import simplejson
 
@@ -145,6 +145,10 @@ class Granary(object):
             mkdir(self.root_dir)
         self.state = PersistentState()
         self.state.set_filepath(self.root_dir)
+        self.state.revert()
+        self._register_silos()
+    
+    def _register_silos(self):
         self.silos = [x for x in listdir(self.root_dir) if self.issilo(x)]
         
     def issilo(self, silo_name):
@@ -166,6 +170,13 @@ class Granary(object):
     
     def sync(self):
         self.state.sync()
+    
+    def delete_silo(self, silo_name):
+        if self.issilo(silo_name):
+            # .... powerful .... 
+            # Applications are advised to walk through the objects held in this silo first
+            # and to remove/deal with their subsequent removal by this command.
+            rmtree(path.join(self.root_dir, silo_name))
     
     def get_silo(self, silo_name, uri_base=None, **kw):
         return Silo(path.join(self.root_dir, silo_name), uri_base=uri_base, **kw)
