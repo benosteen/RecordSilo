@@ -10,7 +10,7 @@ from pairtree import FileNotFoundException, ObjectNotFoundException
 
 from datetime import datetime
 
-from os import mkdir, rename
+#from os import mkdir, rename
 
 import os
 
@@ -158,6 +158,29 @@ class HarvestedRecord(object):
         for x in [y for y in self.manifest['files'][latest_version] if y not in exclude_filenames]:
             self._copy_file(x, latest_version, new_version, sync=False)
         self.set_version_cursor(version_state)
+
+    def _copy_version_delta(self, latest_version, new_version, copy_filenames=[], copy_extensions=[]):
+        version_state = self.manifest['currentversion']
+        self.set_version_cursor(latest_version)
+        self._reload_filelist(new_version)
+        new_root = to_dirpath(version=new_version)
+        cur_root = to_dirpath(version=latest_version)
+        for root, dirs, files in os.walk(cur_root):
+            for name in dirs:
+                dp1 = os.path.join(root, name)
+                dp2 = dp1.replace(cur_root, new_root)
+                os.mkdir(dp2)
+            for name in files:
+                fp1 = os.path.join(root, name)
+                fp2 = fp1.replace(cur_root, new_root)
+                file_ext = os.path.splitext(name)[1]
+                #note: file extensions should start with a dot
+                if name in copy_filenames or file_ext in copy_extensions:
+                    copy2(fp1, fp2)
+                elif os.islink(fp1):
+                    fp1 = os.readlink(fp1)
+                os.symlink(fp1, fp2)
+        self.set_version_cursor(version_state)
     
     def _copy_file(self, filename, latest_version, new_version, sync = True):
         with self.get_stream(filename, version=latest_version) as filetostream:
@@ -223,6 +246,7 @@ class HarvestedRecord(object):
         if sync:
             self.sync()
         return resp
+
     def get_stream(self, filename, version=None, writeable=False):
         """NB If writeable is set to True, then the file is opened "wb+" and can accept writes.
         Otherwise, the file is opened read-only."""
@@ -307,6 +331,20 @@ class HarvestedRecord(object):
         self.sync()
         return new_version
 
+    def increment_version_delta(self, date=None, clone_previous_version=False, copy_filenames=[], copy_extensions=[]):
+        if not date:
+            date = datetime.now().isoformat()
+        self.manifest['date'] = date
+        latest_version = self.manifest['currentversion']
+        new_version = self._incr_version(latest_version)
+        self._setup_version_dir(new_version, date)
+        self.set_version_cursor(new_version)
+        self._read_date()
+        if clone_previous_version:
+            self._copy_version_delta(latest_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
+        self.sync()
+        return new_version
+
     def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, _sync=True):
         if not date:
             date = datetime.now().isoformat()
@@ -341,6 +379,19 @@ class HarvestedRecord(object):
             logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
             return False
 
+    def clone_version_delta(self, original_version, new_version, copy_filenames=[], copy_extensions=[]):
+        if original_version in self.manifest['versions']:
+            date = self.manifest['version_dates'][original_version]
+            self._setup_version_dir(new_version, date)
+            self._read_date()
+            self._copy_version_delta(original_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
+            self.set_version_cursor(new_version)
+            self.sync()
+            return new_version
+        else:
+            logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
+            return False
+
     def copy_file_between_versions(self, filename, from_version, to_version):
         if from_version in self.manifest['versions'] and to_version in self.manifest['versions'] and filename in self.manifest['files'][from_version]:
             self._copy_file(filename, from_version, to_version)
@@ -351,7 +402,7 @@ class HarvestedRecord(object):
             self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
             self.manifest['files'][new_name] = self.manifest['files'][original_version]
             self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
-            rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
+            os.rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
             self.set_version_cursor(new_name)
             self.manifest['versions'].remove(original_version)
             del self.manifest['version_dates'][original_version]
