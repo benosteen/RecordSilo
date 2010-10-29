@@ -87,6 +87,10 @@ True
 >>> p.files
 ['mods.xml', 'TXT.txt', 'important.rdf', 'GDO.pdf']
 
+Cloning versions - using symlinks for files in clone rather than do a hard copy
+>>> p.clone_version_delta('temp', 'temp2')
+'temp2'
+
 Renaming versions
 
 >>> p.versions
@@ -122,6 +126,15 @@ Cloning while versioning up
 '4'
 >>> p.currentversion
 '4'
+>>> p.files
+['mods.xml', 'TXT.txt', 'important.rdf', 'GDO.pdf', 'some.doc']
+
+Cloning while versioning up, using symlinks for files in clone rather than do a hard copy 
+
+>>> p.increment_version_delta(date=None, clone_previous_version=True)
+'5'
+>>> p.currentversion
+'5'
 >>> p.files
 ['mods.xml', 'TXT.txt', 'important.rdf', 'GDO.pdf', 'some.doc']
 
