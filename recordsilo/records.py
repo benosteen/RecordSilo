@@ -287,7 +287,7 @@ class HarvestedRecord(object):
             if detailed:
                 d_parts = {}
                 for part in parts:
-                    d_parts[part] = self.stat(os.path.join("__"+str(self.manifest['currentversion']),subpath, part))
+                    d_parts[part] = self.stat(os.path.join(subpath, part))
                 return d_parts
             else:
                 return parts
@@ -470,7 +470,7 @@ class RDFRecord(HarvestedRecord):
     def set_rdf_manifest_filename(self, filename, format="xml"):
         self.manifest['rdffilename'] = filename
         self.manifest['rdffileformat'] = format
-        self.sync()
+        self.load_rdf_manifest()
     
     def _path_to_rdfmanifest(self, version=None):
         if not version:
@@ -502,8 +502,6 @@ class RDFRecord(HarvestedRecord):
         return self._rdfmanifest.del_triple(s,p,o)
     def del_namespace(self, prefix):
         return self._rdfmanifest.del_namespace(prefix)
-    def get_graph(self):
-        return self._rdfmanifest.get_graph()
     def get_graph(self):
         return self._rdfmanifest.get_graph()
     def rdf_to_string(self, format="xml"):
@@ -541,7 +539,7 @@ class RDFRecord(HarvestedRecord):
         super(RDFRecord, self).sync()
         if self.manifest.has_key('rdffilename') and self.manifest['rdffilename'] not in self.manifest['files'][self.manifest['currentversion']]:
             self.manifest['files'][self.manifest['currentversion']].append(self.manifest['rdffilename'])
-        if self._rdfmanifest: 
+        if self._rdfmanifest:
             self._rdfmanifest.sync()
 
     def _copy_version(self, latest_version, new_version, exclude_filenames=[]):
