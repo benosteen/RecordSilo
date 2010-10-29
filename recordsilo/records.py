@@ -163,8 +163,8 @@ class HarvestedRecord(object):
         version_state = self.manifest['currentversion']
         self.set_version_cursor(latest_version)
         self._reload_filelist(new_version)
-        new_root = to_dirpath(version=new_version)
-        cur_root = to_dirpath(version=latest_version)
+        new_root = self.to_dirpath(version=new_version)
+        cur_root = self.to_dirpath(version=latest_version)
         for root, dirs, files in os.walk(cur_root):
             for name in dirs:
                 dp1 = os.path.join(root, name)
