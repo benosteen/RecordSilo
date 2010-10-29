@@ -174,12 +174,19 @@ class HarvestedRecord(object):
                 fp1 = os.path.join(root, name)
                 fp2 = fp1.replace(cur_root, new_root)
                 file_ext = os.path.splitext(name)[1]
-                #note: file extensions should start with a dot
-                if name in copy_filenames or file_ext in copy_extensions:
+                if name.startswith('0=') or name.startswith('1=') or name.startswith('2=') or name.startswith('3=') or \
+                    name.startswith('4=')  or name.startswith('5='):
+                    pass
+                elif name in copy_filenames or file_ext in copy_extensions:
+                    #note: file extensions should start with a dot
                     copy2(fp1, fp2)
-                elif os.path.islink(fp1):
-                    fp1 = os.readlink(fp1)
-                os.symlink(fp1, fp2)
+                else:
+                    if os.path.islink(fp1):
+                        fp1 = os.readlink(fp1)
+                    os.symlink(fp1, fp2)
+        self.manifest['metadata_files'][new_version] = self.manifest['metadata_files'][latest_version]
+        self.manifest['files'][new_version] = self.manifest['files'][latest_version]
+        self.manifest['subdir'][new_version] = self.manifest['subdir'][latest_version]
         self.set_version_cursor(version_state)
     
     def _copy_file(self, filename, latest_version, new_version, sync = True):
