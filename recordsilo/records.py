@@ -177,7 +177,7 @@ class HarvestedRecord(object):
                 #note: file extensions should start with a dot
                 if name in copy_filenames or file_ext in copy_extensions:
                     copy2(fp1, fp2)
-                elif os.islink(fp1):
+                elif os.path.islink(fp1):
                     fp1 = os.readlink(fp1)
                 os.symlink(fp1, fp2)
         self.set_version_cursor(version_state)
