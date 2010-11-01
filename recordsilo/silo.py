@@ -12,7 +12,7 @@ from pairtree import FileNotFoundException, ObjectNotFoundException
 
 from datetime import datetime
 
-from os import path, mkdir, rename, listdir
+from os import path, mkdir, rename, listdir, popen
 
 from shutil import copy2, rmtree
 
@@ -167,7 +167,7 @@ class Granary(object):
                 return self.state[silo_name]
             else:
                 return {}
-    
+   
     def sync(self):
         self.state.sync()
     
@@ -183,3 +183,13 @@ class Granary(object):
         
     def get_rdf_silo(self, silo_name, uri_base=None, **kw):
         return RDFSilo(path.join(self.root_dir, silo_name), uri_base=uri_base, **kw)
+
+    def disk_usage_silo(self, silo_name):
+        if self.issilo(silo_name):
+            silo_dir = path.join(self.root_dir, silo_name)
+            command = "du -ks %s" %silo_dir
+            fileobject = popen(command)
+            dataline = fileobject.read()
+            fileobject.close()
+            data = dataline[:-1].split("\t") 
+            return data[0]
