@@ -196,6 +196,19 @@ class HarvestedRecord(object):
                 metadata = True
             self.put_stream(filename, filetostream, version=new_version, metadata=metadata, sync=sync)
 
+    def disk_usage(self, version=None):
+        if version:
+            root = False
+        else:
+            root = True
+        item_dir = self.to_dirpath(root=root, version=version)
+        command = "du -ks %s" %item_dir
+        fileobject = popen(command)
+        dataline = fileobject.read()
+        fileobject.close()
+        data = dataline[:-1].split("\t") 
+        return data[0]
+
     def path_to_item(self):
         return self.po.fs._id_to_dirpath(self.po.id)
 
@@ -299,11 +312,13 @@ class HarvestedRecord(object):
             else:
                 return parts
     
-    def to_dirpath(self, filepath=None, version=None):
+    def to_dirpath(self, filepath=None, version=None, root=False):
         if not version:
             version = self.currentversion
         if filepath:
             return os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version, filepath)
+        elif root:
+            return ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root)
         else:
             return os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version)
 
