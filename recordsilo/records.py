@@ -184,9 +184,15 @@ class HarvestedRecord(object):
                     if os.path.islink(fp1):
                         fp1 = os.readlink(fp1)
                     os.symlink(fp1, fp2)
-        self.manifest['metadata_files'][new_version] = self.manifest['metadata_files'][latest_version]
-        self.manifest['files'][new_version] = self.manifest['files'][latest_version]
-        self.manifest['subdir'][new_version] = self.manifest['subdir'][latest_version]
+        self.manifest['metadata_files'][new_version] = []
+        for i in self.manifest['metadata_files'][latest_version]:
+            self.manifest['metadata_files'][new_version].append(i)
+        self.manifest['files'][new_version] = []
+        for i in self.manifest['files'][latest_version]:
+            self.manifest['files'][new_version].append(i)
+        self.manifest['subdir'][new_version] = []
+        for i in self.manifest['subdir'][latest_version]:
+            self.manifest['subdir'][new_version].append(i)
         self.set_version_cursor(version_state)
     
     def _copy_file(self, filename, latest_version, new_version, sync = True):
