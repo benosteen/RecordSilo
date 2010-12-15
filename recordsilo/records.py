@@ -462,6 +462,10 @@ class HarvestedRecord(object):
             else:
                 self.manifest['currentversion'] = "1"
                 self._read_date()
+                if self.manifest['date']:
+                    date = self.manifest['date']
+                else:
+                    date = datetime.now().isoformat()  
                 self._setup_version_dir(version, date)
             self.sync()
             return self.po.del_path("__"+str(version), recursive=True)
