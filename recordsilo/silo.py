@@ -92,16 +92,16 @@ class Silo(object):
     def exists(self, item_id):
         return self._store.exists(item_id)
 
-    def get_item(self, item_id, date=None, force=False):
+    def get_item(self, item_id, date=None, force=False, startversion="1"):
         if self.exists(item_id):
             p_obj = self._store.get_object(item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
         elif self.exists(self.state['uri_base'] + item_id) and not force:
             p_obj = self._store.get_object(self.state['uri_base'] + item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
         else:
             p_obj = self._store.get_object(item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
 
     def del_item(self, item_id):
         if self.exists(item_id):

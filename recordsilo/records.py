@@ -41,7 +41,7 @@ NAMASTE_PATTERN = re.compile(r"[^0=|1=|2=|3=|4=|5=]")  # Must try hard to better
 
 class HarvestedRecord(object):
     """Convenience class, handling the persistence of some basic metadata about a harvest item, as well as organising the items files, metadata or otherwise."""
-    def __init__(self, pairtree_object, date=None, manifest_filename="__manifest.json"):
+    def __init__(self, pairtree_object, date=None, manifest_filename="__manifest.json", startversion="1"):
         self.po = pairtree_object
         self.item_id = self.po.id
         self.uri = self.po.uri
@@ -49,7 +49,7 @@ class HarvestedRecord(object):
         if not date:
             date = datetime.now().isoformat()
         self.itempath = self.path_to_item()
-        self.revert(date=date)
+        self.revert(date=date, startversion="1")
         self.files=None
         self.versions=None
         self.currentversion=None
@@ -123,7 +123,7 @@ class HarvestedRecord(object):
                     self.manifest['subdir'][version].append(filename)
                 self.manifest['files'][version].append(filename)
 
-    def _init_manifest(self):
+    def _init_manifest(self, startversion="1"):
         """Set up the template for the item's manifest"""
         self.manifest['metadata_files'] = {}
         self.manifest['files'] = {}
@@ -131,8 +131,8 @@ class HarvestedRecord(object):
         self.manifest['versions'] = []
         self.manifest['version_dates'] = {}
         self.manifest['subdir'] = {}
-        self.manifest['currentversion'] = "1"
-        self._setup_version_dir("1", self.manifest['date'])
+        self.manifest['currentversion'] = startversion
+        self._setup_version_dir(startversion, self.manifest['date'])
         self.manifest.sync()
     
     def _read_date(self, version = None):
@@ -224,7 +224,10 @@ class HarvestedRecord(object):
                     self.manifest['date'] = kw['date']
                 else:
                     self.manifest['date'] = datetime.now().isoformat()
-                self._init_manifest()
+                if kw.has_key('startversion'):
+                    self._init_manifest(startversion = kw['startversion'])
+                else:                
+                    self._init_manifest()
                 logger.debug(self.manifest)
             self._init_manifests_emptydatastructures()
             logger.debug(self.manifest)
