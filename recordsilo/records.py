@@ -49,7 +49,7 @@ class HarvestedRecord(object):
         if not date:
             date = datetime.now().isoformat()
         self.itempath = self.path_to_item()
-        self.revert(date=date, startversion="1")
+        self.revert(date=date, startversion=startversion)
         self.files=None
         self.versions=None
         self.currentversion=None
@@ -492,7 +492,7 @@ class HarvestedRecord(object):
         return self.manifest['currentversion']
 
 class RDFRecord(HarvestedRecord):
-    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json", , startversion="1"):
+    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json", startversion="1"):
         super(RDFRecord, self).__init__(pairtree_object, date=None, manifest_filename="__manifest.json", startversion=startversion)
         self.set_rdf_manifest_filename(rdf_manifest_filename, format=rdf_manifest_format)
         
