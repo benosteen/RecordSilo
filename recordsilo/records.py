@@ -492,8 +492,8 @@ class HarvestedRecord(object):
         return self.manifest['currentversion']
 
 class RDFRecord(HarvestedRecord):
-    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json"):
-        super(RDFRecord, self).__init__(pairtree_object, date=None, manifest_filename="__manifest.json")
+    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json", , startversion="1"):
+        super(RDFRecord, self).__init__(pairtree_object, date=None, manifest_filename="__manifest.json", startversion=startversion)
         self.set_rdf_manifest_filename(rdf_manifest_filename, format=rdf_manifest_format)
         
     def set_rdf_manifest_filename(self, filename, format="xml"):
