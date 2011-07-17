@@ -553,6 +553,20 @@ class RDFRecord(HarvestedRecord):
         if self.currentversion in versions or not versions:
             self.del_triple(self.uri, "ore:aggregates", "%s/%s" % (self.uri, filename))
         self.sync()
+
+    def del_dir(self, dirpath):
+        dirpath_f = self.to_dirpath(filepath=dirpath)
+        #for p in (os.path.join(dirpath_f,f) for f in os.listdir(dirpath_f)):
+        for f in os.listdir(dirpath_f):
+            p = os.path.join(dirpath_f,f)
+            fullpath_normal = os.path.join(dirpath, f)
+            fullpath_pairtree = self.to_dirpath(filepath=p)
+            if os.path.isdir(fullpath_pairtree):
+                self.del_dir(fullpath_normal)
+            else:
+                self.del_stream(fullpath_normal)
+        self.del_stream(dirpath)
+        self.sync()
     
     def set_version_cursor(self, version):
         super(RDFRecord, self).set_version_cursor(version)
