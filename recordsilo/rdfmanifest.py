@@ -3,7 +3,8 @@ from __future__ import with_statement
 
 from os import path, mkdir
 
-from rdfobject.constructs import Manifest
+#from rdfobject.constructs import Manifest
+from manifesthelper import ManifestHelper
 
 import logging
 
@@ -18,7 +19,7 @@ ch.setFormatter(formatter)
 
 logger.addHandler(ch)
 
-class RDFManifest(Manifest):
+class RDFManifest(ManifestHelper):
     def __init__(self, filepath, format="xml", uri=None):
         super(RDFManifest, self).__init__(uri)
         self.filepath = filepath
