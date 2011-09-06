@@ -36,11 +36,9 @@ class ManifestHelper(object):
         for prefix, ns in NAMESPACES.iteritems():
             self.add_namespace(prefix, ns)
     
-    def from_string(self, text, format="xml", encoding="utf-8"):
+    def from_string(self, textfile, format="xml", encoding="utf-8"):
         self.reset()
-        t = TextInputSource(text, system_id=self.uri)
-        t.setEncoding(encoding)
-        self.g.parse(t, format)
+        self.g.parse(textfile, format)
         return
     
     def triple_exists(self, s, p, o):
