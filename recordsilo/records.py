@@ -10,7 +10,7 @@ from pairtree import FileNotFoundException, ObjectNotFoundException
 
 from datetime import datetime
 
-from os import mkdir, rename
+#from os import mkdir, rename
 
 import os
 
@@ -41,7 +41,7 @@ NAMASTE_PATTERN = re.compile(r"[^0=|1=|2=|3=|4=|5=]")  # Must try hard to better
 
 class HarvestedRecord(object):
     """Convenience class, handling the persistence of some basic metadata about a harvest item, as well as organising the items files, metadata or otherwise."""
-    def __init__(self, pairtree_object, date=None, manifest_filename="__manifest.json"):
+    def __init__(self, pairtree_object, date=None, manifest_filename="__manifest.json", startversion="1"):
         self.po = pairtree_object
         self.item_id = self.po.id
         self.uri = self.po.uri
@@ -49,7 +49,7 @@ class HarvestedRecord(object):
         if not date:
             date = datetime.now().isoformat()
         self.itempath = self.path_to_item()
-        self.revert(date=date)
+        self.revert(date=date, startversion=startversion)
         self.files=None
         self.versions=None
         self.currentversion=None
@@ -123,7 +123,7 @@ class HarvestedRecord(object):
                     self.manifest['subdir'][version].append(filename)
                 self.manifest['files'][version].append(filename)
 
-    def _init_manifest(self):
+    def _init_manifest(self, startversion="1"):
         """Set up the template for the item's manifest"""
         self.manifest['metadata_files'] = {}
         self.manifest['files'] = {}
@@ -131,8 +131,8 @@ class HarvestedRecord(object):
         self.manifest['versions'] = []
         self.manifest['version_dates'] = {}
         self.manifest['subdir'] = {}
-        self.manifest['currentversion'] = "1"
-        self._setup_version_dir("1", self.manifest['date'])
+        self.manifest['currentversion'] = startversion
+        self._setup_version_dir(startversion, self.manifest['date'])
         self.manifest.sync()
     
     def _read_date(self, version = None):
@@ -158,6 +158,36 @@ class HarvestedRecord(object):
         for x in [y for y in self.manifest['files'][latest_version] if y not in exclude_filenames]:
             self._copy_file(x, latest_version, new_version, sync=False)
         self.set_version_cursor(version_state)
+
+    def _copy_version_delta(self, latest_version, new_version, copy_filenames=[], copy_extensions=[]):
+        version_state = self.manifest['currentversion']
+        self.set_version_cursor(latest_version)
+        self._reload_filelist(new_version)
+        new_root = self.to_dirpath(version=new_version)
+        cur_root = self.to_dirpath(version=latest_version)
+        for root, dirs, files in os.walk(cur_root):
+            for name in dirs:
+                dp1 = os.path.join(root, name)
+                dp2 = dp1.replace(cur_root, new_root)
+                os.mkdir(dp2)
+            for name in files:
+                fp1 = os.path.join(root, name)
+                fp2 = fp1.replace(cur_root, new_root)
+                file_ext = os.path.splitext(name)[1]
+                if name.startswith('0=') or name.startswith('1=') or name.startswith('2=') or name.startswith('3=') or \
+                    name.startswith('4=')  or name.startswith('5='):
+                    pass
+                elif name in copy_filenames or file_ext in copy_extensions:
+                    #note: file extensions should start with a dot
+                    copy2(fp1, fp2)
+                else:
+                    if os.path.islink(fp1):
+                        fp1 = os.readlink(fp1)
+                    os.symlink(fp1, fp2)
+        self.manifest['metadata_files'][new_version] = list(self.manifest['metadata_files'][latest_version])
+        self.manifest['files'][new_version] = list(self.manifest['files'][latest_version])
+        self.manifest['subdir'][new_version] = list(self.manifest['subdir'][latest_version])
+        self.set_version_cursor(version_state)
     
     def _copy_file(self, filename, latest_version, new_version, sync = True):
         with self.get_stream(filename, version=latest_version) as filetostream:
@@ -165,6 +195,19 @@ class HarvestedRecord(object):
             if filename in self.manifest['metadata_files'][latest_version]:
                 metadata = True
             self.put_stream(filename, filetostream, version=new_version, metadata=metadata, sync=sync)
+
+    def disk_usage(self, version=None):
+        if version:
+            root = False
+        else:
+            root = True
+        item_dir = self.to_dirpath(root=root, version=version)
+        command = "du -ks %s" %item_dir
+        fileobject = popen(command)
+        dataline = fileobject.read()
+        fileobject.close()
+        data = dataline[:-1].split("\t") 
+        return data[0]
 
     def path_to_item(self):
         return self.po.fs._id_to_dirpath(self.po.id)
@@ -181,7 +224,10 @@ class HarvestedRecord(object):
                     self.manifest['date'] = kw['date']
                 else:
                     self.manifest['date'] = datetime.now().isoformat()
-                self._init_manifest()
+                if kw.has_key('startversion'):
+                    self._init_manifest(startversion = kw['startversion'])
+                else:                
+                    self._init_manifest()
                 logger.debug(self.manifest)
             self._init_manifests_emptydatastructures()
             logger.debug(self.manifest)
@@ -223,6 +269,7 @@ class HarvestedRecord(object):
         if sync:
             self.sync()
         return resp
+
     def get_stream(self, filename, version=None, writeable=False):
         """NB If writeable is set to True, then the file is opened "wb+" and can accept writes.
         Otherwise, the file is opened read-only."""
@@ -263,16 +310,18 @@ class HarvestedRecord(object):
             if detailed:
                 d_parts = {}
                 for part in parts:
-                    d_parts[part] = self.stat(os.path.join("__"+str(self.manifest['currentversion']),subpath, part))
+                    d_parts[part] = self.stat(os.path.join(subpath, part))
                 return d_parts
             else:
                 return parts
     
-    def to_dirpath(self, filepath=None, version=None):
+    def to_dirpath(self, filepath=None, version=None, root=False):
         if not version:
             version = self.currentversion
         if filepath:
             return os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version, filepath)
+        elif root:
+            return ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root)
         else:
             return os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version)
 
@@ -304,6 +353,20 @@ class HarvestedRecord(object):
         self._read_date()
         if clone_previous_version:
             self._copy_version(latest_version, new_version)
+        self.sync()
+        return new_version
+
+    def increment_version_delta(self, date=None, clone_previous_version=False, copy_filenames=[], copy_extensions=[]):
+        if not date:
+            date = datetime.now().isoformat()
+        self.manifest['date'] = date
+        latest_version = self.manifest['currentversion']
+        new_version = self._incr_version(latest_version)
+        self._setup_version_dir(new_version, date)
+        self.set_version_cursor(new_version)
+        self._read_date()
+        if clone_previous_version:
+            self._copy_version_delta(latest_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
         self.sync()
         return new_version
 
@@ -341,6 +404,19 @@ class HarvestedRecord(object):
             logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
             return False
 
+    def clone_version_delta(self, original_version, new_version, copy_filenames=[], copy_extensions=[]):
+        if original_version in self.manifest['versions']:
+            date = self.manifest['version_dates'][original_version]
+            self._setup_version_dir(new_version, date)
+            self._read_date()
+            self._copy_version_delta(original_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
+            self.set_version_cursor(new_version)
+            self.sync()
+            return new_version
+        else:
+            logger.error("Version %s is not found in the object. Cannot be cloned" % original_version)
+            return False
+
     def copy_file_between_versions(self, filename, from_version, to_version):
         if from_version in self.manifest['versions'] and to_version in self.manifest['versions'] and filename in self.manifest['files'][from_version]:
             self._copy_file(filename, from_version, to_version)
@@ -351,7 +427,7 @@ class HarvestedRecord(object):
             self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
             self.manifest['files'][new_name] = self.manifest['files'][original_version]
             self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
-            rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
+            os.rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
             self.set_version_cursor(new_name)
             self.manifest['versions'].remove(original_version)
             del self.manifest['version_dates'][original_version]
@@ -389,6 +465,10 @@ class HarvestedRecord(object):
             else:
                 self.manifest['currentversion'] = "1"
                 self._read_date()
+                if self.manifest['date']:
+                    date = self.manifest['date']
+                else:
+                    date = datetime.now().isoformat()  
                 self._setup_version_dir(version, date)
             self.sync()
             return self.po.del_path("__"+str(version), recursive=True)
@@ -412,14 +492,14 @@ class HarvestedRecord(object):
         return self.manifest['currentversion']
 
 class RDFRecord(HarvestedRecord):
-    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json"):
-        super(RDFRecord, self).__init__(pairtree_object, date=None, manifest_filename="__manifest.json")
+    def __init__(self, pairtree_object, date=None, rdf_manifest_filename="manifest.rdf", rdf_manifest_format="xml", manifest_filename="__manifest.json", startversion="1"):
+        super(RDFRecord, self).__init__(pairtree_object, date=None, manifest_filename="__manifest.json", startversion=startversion)
         self.set_rdf_manifest_filename(rdf_manifest_filename, format=rdf_manifest_format)
         
     def set_rdf_manifest_filename(self, filename, format="xml"):
         self.manifest['rdffilename'] = filename
         self.manifest['rdffileformat'] = format
-        self.sync()
+        self.load_rdf_manifest()
     
     def _path_to_rdfmanifest(self, version=None):
         if not version:
@@ -453,8 +533,6 @@ class RDFRecord(HarvestedRecord):
         return self._rdfmanifest.del_namespace(prefix)
     def get_graph(self):
         return self._rdfmanifest.get_graph()
-    def get_graph(self):
-        return self._rdfmanifest.get_graph()
     def rdf_to_string(self, format="xml"):
         return self._rdfmanifest.to_string(format)
     
@@ -475,6 +553,20 @@ class RDFRecord(HarvestedRecord):
         if self.currentversion in versions or not versions:
             self.del_triple(self.uri, "ore:aggregates", "%s/%s" % (self.uri, filename))
         self.sync()
+
+    def del_dir(self, dirpath):
+        dirpath_f = self.to_dirpath(filepath=dirpath)
+        #for p in (os.path.join(dirpath_f,f) for f in os.listdir(dirpath_f)):
+        for f in os.listdir(dirpath_f):
+            p = os.path.join(dirpath_f,f)
+            fullpath_normal = os.path.join(dirpath, f)
+            fullpath_pairtree = self.to_dirpath(filepath=p)
+            if os.path.isdir(fullpath_pairtree):
+                self.del_dir(fullpath_normal)
+            else:
+                self.del_stream(fullpath_normal)
+        self.del_stream(dirpath)
+        self.sync()
     
     def set_version_cursor(self, version):
         super(RDFRecord, self).set_version_cursor(version)
@@ -490,7 +582,7 @@ class RDFRecord(HarvestedRecord):
         super(RDFRecord, self).sync()
         if self.manifest.has_key('rdffilename') and self.manifest['rdffilename'] not in self.manifest['files'][self.manifest['currentversion']]:
             self.manifest['files'][self.manifest['currentversion']].append(self.manifest['rdffilename'])
-        if self._rdfmanifest: 
+        if self._rdfmanifest:
             self._rdfmanifest.sync()
 
     def _copy_version(self, latest_version, new_version, exclude_filenames=[]):

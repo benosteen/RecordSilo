@@ -12,7 +12,7 @@ from pairtree import FileNotFoundException, ObjectNotFoundException
 
 from datetime import datetime
 
-from os import path, mkdir, rename, listdir
+from os import path, mkdir, rename, listdir, popen
 
 from shutil import copy2, rmtree
 
@@ -92,16 +92,16 @@ class Silo(object):
     def exists(self, item_id):
         return self._store.exists(item_id)
 
-    def get_item(self, item_id, date=None, force=False):
+    def get_item(self, item_id, date=None, force=False, startversion="1"):
         if self.exists(item_id):
             p_obj = self._store.get_object(item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
         elif self.exists(self.state['uri_base'] + item_id) and not force:
             p_obj = self._store.get_object(self.state['uri_base'] + item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
         else:
             p_obj = self._store.get_object(item_id)
-            return HarvestedRecord(p_obj, date)
+            return HarvestedRecord(p_obj, date, startversion=startversion)
 
     def del_item(self, item_id):
         if self.exists(item_id):
@@ -116,16 +116,16 @@ class Silo(object):
 
 
 class RDFSilo(Silo):
-    def get_item(self, item_id, date=None, force=False):
+    def get_item(self, item_id, date=None, force=False, startversion="1"):
         if self.exists(item_id):
             p_obj = self._store.get_object(item_id)
-            return RDFRecord(p_obj, date)
+            return RDFRecord(p_obj, date, startversion=startversion)
         elif self.exists(self.state['uri_base'] + item_id) and not force:
             p_obj = self._store.get_object(self.state['uri_base'] + item_id)
-            return RDFRecord(p_obj, date)
+            return RDFRecord(p_obj, date, startversion=startversion)
         else:
             p_obj = self._store.get_object(item_id)
-            return RDFRecord(p_obj, date)
+            return RDFRecord(p_obj, date, startversion=startversion)
 
     def del_item(self, item_id):
         if self.exists(item_id):
@@ -167,7 +167,7 @@ class Granary(object):
                 return self.state[silo_name]
             else:
                 return {}
-    
+   
     def sync(self):
         self.state.sync()
     
@@ -183,3 +183,13 @@ class Granary(object):
         
     def get_rdf_silo(self, silo_name, uri_base=None, **kw):
         return RDFSilo(path.join(self.root_dir, silo_name), uri_base=uri_base, **kw)
+
+    def disk_usage_silo(self, silo_name):
+        if self.issilo(silo_name):
+            silo_dir = path.join(self.root_dir, silo_name)
+            command = "du -ks %s" %silo_dir
+            fileobject = popen(command)
+            dataline = fileobject.read()
+            fileobject.close()
+            data = dataline[:-1].split("\t") 
+            return data[0]

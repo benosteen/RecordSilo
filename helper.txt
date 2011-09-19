@@ -1,0 +1,4 @@
+Refernce: http://packages.python.org/an_example_pypi_project/setuptools.html
+To build an egg file:
+python setup.py build 
+python setup.py bdist_egg

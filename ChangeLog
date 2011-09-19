@@ -1,0 +1,25 @@
+Tue Jul 26 2011
+    * Version: 0.4.14
+    * Passing the file name instead of a file-like object (using StringIO) to the RDFXML parser for unicode support 
+    * Passing a unicode string containing non ascii characters as a file object to the parser in rdflib throws UnicodeEncodeError (see http://code.google.com/p/rdflib/issues/detail?id=108). Format of string is XML. This is reproducable even in version 3.1.0 of rdflib. So passing the file name instead to the parser so as to be able to handle the full rnage of unicode characters in the manifest. This seems to work.
+
+Sun Jul 17 2011
+    * Version: 0.4.13
+    * Removed the dependency on rdfobject and instead have added a simple manifesthelper class (which is based on rdfobject)
+
+Thu Jun 16 2011
+    * Version: 0.4.12
+    * Wrote a helper function del_dir in the RDFRecord class, to be able to recursively delete directories 
+
+Fri Dec 17 2010
+    * Version: 0.4.11
+    * Can customize the start version for datasets in silos. The default startversion is 1.
+
+Mon Nov 8 2010
+    * Version: 0.4.10
+    * Added a function to calculate the disk usage
+
+Fri Oct 29 2010
+    * Version: 0.4.9
+    * Extended the versioning capabalities a bit. Added functionality to use symlinks when using copy, clone or increment of version.
+
