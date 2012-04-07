@@ -141,6 +141,7 @@ class HarvestedRecord(object):
         self.manifest['subdir'] = {}
         self.manifest['currentversion'] = startversion
         self._setup_version_dir(startversion, self.manifest['date'])
+        self.manifest['versionlog'][startversion] = ["Created new data package"]
         self.manifest.sync()
     
     def _read_date(self, version = None):
@@ -298,7 +299,7 @@ class HarvestedRecord(object):
                 self.po.del_file_by_path(os.path.join("__" + str(version), filename))
                 if self.isfile(filename, version):
                     self.manifest['metadata_files'][version].remove(filename)
-                    self.manifest['versionlog'][version].append("Deleted file %s"%filename)
+                self.manifest['versionlog'][version].append("Deleted file %s"%filename)
                 self._reload_filelist(version)
             except FileNotFoundException:
                 logger.info("File %s not found at version %s and so cannot be deleted" % (filename, version))
@@ -382,7 +383,7 @@ class HarvestedRecord(object):
         self.sync()
         return new_version
 
-    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, _sync=True):
+    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, log="Directory contents", _sync=True):
         newVersion = True
         if not date:
             date = datetime.now().isoformat()
@@ -402,9 +403,9 @@ class HarvestedRecord(object):
         self._reload_filelist(version)
         self.set_version_cursor(version)
         if newVersion:
-            self.manifest['versionlog'][version].append("Directory contents added into new version %s"%version)
+            self.manifest['versionlog'][version].append("%s added as version %s"%(log, version))
         else:
-            self.manifest['versionlog'][version].append("Directory contents replaced version %s"%version)
+            self.manifest['versionlog'][version].append("%s replaced version %s"%(log, version))
         if _sync:
             self.sync()
         return version
@@ -448,7 +449,7 @@ class HarvestedRecord(object):
             self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
             self.manifest['files'][new_name] = self.manifest['files'][original_version]
             self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
-            self.manifest['versionlog'][new_name].append("Version renamed from %s to %s"%(original_version, new_name))
+            self.manifest['versionlog'][new_name].append("Version %s renamed to %s"%(original_version, new_name))
             os.rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
             self.set_version_cursor(new_name)
             self.manifest['versions'].remove(original_version)
@@ -493,7 +494,7 @@ class HarvestedRecord(object):
                 else:
                     date = datetime.now().isoformat()  
                 self._setup_version_dir(version, date)
-            self.manifest['versionlog'][version].append("Version %s deleted"%version)
+            self.manifest['versionlog'][version].append("Deleted version %s"%version)
             self.sync()
             return self.po.del_path("__"+str(version), recursive=True)
 
@@ -613,8 +614,8 @@ class RDFRecord(HarvestedRecord):
         super(RDFRecord, self)._copy_version(latest_version, new_version, exclude_filenames)
         self.load_rdf_manifest()
     
-    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, _sync=True):
-        super(RDFRecord, self).move_directory_as_new_version(src_directory, version=version, force=force, date=date, _sync=False)
+    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, log="Directory contents", _sync=True):
+        super(RDFRecord, self).move_directory_as_new_version(src_directory, version=version, force=force, date=date, log=log, _sync=False)
         self.load_rdf_manifest()
         if _sync:
             self.sync()
