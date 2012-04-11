@@ -55,7 +55,7 @@ class HarvestedRecord(object):
         self.currentversion=None
     
     def __setattribute__(self,name, value):
-        if name not in ['files', 'versions', 'currentversion', 'date']:
+        if name not in ['files', 'versions', 'currentversion', 'date', 'versionlog']:
             if name == "metadata":
                 self.manifest['metadata'] = value
             else:
@@ -73,6 +73,8 @@ class HarvestedRecord(object):
             return self.manifest['currentversion']
         elif name=='date':
             return self.manifest['date']
+        elif name=='versionlog':
+            return self.manifest['versionlog'][self.manifest['currentversion']]
         elif name=='metadata':
             if not self.manifest.has_key('metadata'):
                 self.manifest['metadata'] = {}
@@ -95,6 +97,7 @@ class HarvestedRecord(object):
         self.manifest['subdir'][version] = []
         self.manifest['metadata_files'][version] = []
         self.manifest['files'][version] = []
+        self.manifest['versionlog'][version] = []
         self.set_version_date(version, date)
         self.po.add_bytestream_by_path(os.path.join("__"+str(version), "4=%s" % id_encode(self.item_id)), self.item_id)
 
@@ -106,11 +109,15 @@ class HarvestedRecord(object):
             self.manifest['subdir'] = {}
         if not self.manifest.has_key('files'):
             self.manifest['files'] = {}
+        if not self.manifest.has_key('versionlog'):
+            self.manifest['versionlog'] = {}
         for version in self.manifest['versions']:
             if not self.manifest['metadata_files'].has_key(version):
                 self.manifest['metadata_files'][version] = []
             if not self.manifest['subdir'].has_key(version):
                 self.manifest['subdir'][version] = []
+            if not self.manifest['versionlog'].has_key(version):
+                self.manifest['versionlog'][version] = []
 
     def _reload_filelist(self, version):
         if self.manifest['files'].has_key(version) and version in self.manifest['versions']:
@@ -127,12 +134,14 @@ class HarvestedRecord(object):
         """Set up the template for the item's manifest"""
         self.manifest['metadata_files'] = {}
         self.manifest['files'] = {}
+        self.manifest['versionlog'] = {}
         self.manifest['item_id'] = self.po.id
         self.manifest['versions'] = []
         self.manifest['version_dates'] = {}
         self.manifest['subdir'] = {}
         self.manifest['currentversion'] = startversion
         self._setup_version_dir(startversion, self.manifest['date'])
+        self.manifest['versionlog'][startversion] = ["Created new data package"]
         self.manifest.sync()
     
     def _read_date(self, version = None):
@@ -264,6 +273,7 @@ class HarvestedRecord(object):
             self.manifest['metadata_files'][version].append(filename)
         if filename not in self.manifest['files'][version]:
             self.manifest['files'][version].append(filename)
+        self.manifest['versionlog'][version].append("Added or updated file %s"%filename)
         resp = self.po.add_bytestream_by_path(os.path.join("__" + str(version), filename), filetostream)
         self._reload_filelist(version)
         if sync:
@@ -289,6 +299,7 @@ class HarvestedRecord(object):
                 self.po.del_file_by_path(os.path.join("__" + str(version), filename))
                 if self.isfile(filename, version):
                     self.manifest['metadata_files'][version].remove(filename)
+                self.manifest['versionlog'][version].append("Deleted file %s"%filename)
                 self._reload_filelist(version)
             except FileNotFoundException:
                 logger.info("File %s not found at version %s and so cannot be deleted" % (filename, version))
@@ -345,48 +356,56 @@ class HarvestedRecord(object):
     def increment_version(self, date=None, clone_previous_version=False):
         if not date:
             date = datetime.now().isoformat()
-        self.manifest['date'] = date
         latest_version = self.manifest['currentversion']
         new_version = self._incr_version(latest_version)
         self._setup_version_dir(new_version, date)
         self.set_version_cursor(new_version)
+        self.manifest['date'] = date
         self._read_date()
         if clone_previous_version:
             self._copy_version(latest_version, new_version)
+        self.manifest['versionlog'][new_version].append("Version number incremented from %s to %s"%(latest_version, new_version))
         self.sync()
         return new_version
 
     def increment_version_delta(self, date=None, clone_previous_version=False, copy_filenames=[], copy_extensions=[]):
         if not date:
             date = datetime.now().isoformat()
-        self.manifest['date'] = date
         latest_version = self.manifest['currentversion']
         new_version = self._incr_version(latest_version)
         self._setup_version_dir(new_version, date)
         self.set_version_cursor(new_version)
+        self.manifest['date'] = date
         self._read_date()
         if clone_previous_version:
             self._copy_version_delta(latest_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
+        self.manifest['versionlog'][new_version].append("Version number incremented from %s to %s"%(latest_version, new_version))
         self.sync()
         return new_version
 
-    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, _sync=True):
+    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, log="Directory contents", _sync=True):
+        newVersion = True
         if not date:
             date = datetime.now().isoformat()
-        self.manifest['date'] = date
         if not version:
             version = self._incr_version(self.currentversion)
         if version in self.get_versions():
             if force:
                 self.del_version(version)
+                newVersion = False
             else:
                 raise Exception("Cannot move a directory onto an already existing version")
         version_path = os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version)
         os.rename(src_directory, version_path)
         self._setup_version_dir(version, date)
+        self.manifest['date'] = date
         self._read_date()
         self._reload_filelist(version)
         self.set_version_cursor(version)
+        if newVersion:
+            self.manifest['versionlog'][version].append("%s added as version %s"%(log, version))
+        else:
+            self.manifest['versionlog'][version].append("%s replaced version %s"%(log, version))
         if _sync:
             self.sync()
         return version
@@ -398,6 +417,7 @@ class HarvestedRecord(object):
             self._read_date()
             self._copy_version(original_version, new_version, exclude_filenames)
             self.set_version_cursor(new_version)
+            self.manifest['versionlog'][new_version].append("Version %s cloned from %s"%(new_version, original_version))
             self.sync()
             return new_version
         else:
@@ -411,6 +431,7 @@ class HarvestedRecord(object):
             self._read_date()
             self._copy_version_delta(original_version, new_version, copy_filenames=copy_filenames, copy_extensions=copy_extensions)
             self.set_version_cursor(new_version)
+            self.manifest['versionlog'][new_version].append("Version %s cloned from %s"%(new_version, original_version))
             self.sync()
             return new_version
         else:
@@ -420,6 +441,7 @@ class HarvestedRecord(object):
     def copy_file_between_versions(self, filename, from_version, to_version):
         if from_version in self.manifest['versions'] and to_version in self.manifest['versions'] and filename in self.manifest['files'][from_version]:
             self._copy_file(filename, from_version, to_version)
+            self.manifest['versionlog'][to_version].append("File %s copied from version %s to %s"%(filename, from_version, to_version))
 
     def rename_version(self, original_version, new_name):
         if original_version in self.manifest['versions']:
@@ -427,6 +449,7 @@ class HarvestedRecord(object):
             self.manifest['version_dates'][new_name] = self.manifest['version_dates'][original_version]
             self.manifest['files'][new_name] = self.manifest['files'][original_version]
             self.manifest['metadata_files'][new_name] = self.manifest['metadata_files'][original_version]
+            self.manifest['versionlog'][new_name].append("Version %s renamed to %s"%(original_version, new_name))
             os.rename(os.path.join(self.path_to_item(), "__"+str(original_version)), os.path.join(self.path_to_item(), "__" + str(new_name)))
             self.set_version_cursor(new_name)
             self.manifest['versions'].remove(original_version)
@@ -444,6 +467,7 @@ class HarvestedRecord(object):
         if version not in self.manifest['versions']:
             self._setup_version_dir(version, date)
             self.set_version_cursor(version)
+            self.manifest['versionlog'][version].append("Created new version %s"%version)
             self.sync()
         else:
             logger.error("Cannot create new version %s - version directory already exists" % version)
@@ -470,6 +494,7 @@ class HarvestedRecord(object):
                 else:
                     date = datetime.now().isoformat()  
                 self._setup_version_dir(version, date)
+            self.manifest['versionlog'][version].append("Deleted version %s"%version)
             self.sync()
             return self.po.del_path("__"+str(version), recursive=True)
 
@@ -589,8 +614,8 @@ class RDFRecord(HarvestedRecord):
         super(RDFRecord, self)._copy_version(latest_version, new_version, exclude_filenames)
         self.load_rdf_manifest()
     
-    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, _sync=True):
-        super(RDFRecord, self).move_directory_as_new_version(src_directory, version=version, force=force, date=date, _sync=False)
+    def move_directory_as_new_version(self, src_directory, version=None, force=False, date=None, log="Directory contents", _sync=True):
+        super(RDFRecord, self).move_directory_as_new_version(src_directory, version=version, force=force, date=date, log=log, _sync=False)
         self.load_rdf_manifest()
         if _sync:
             self.sync()

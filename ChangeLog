@@ -1,3 +1,7 @@
+Thu Apr 05 2011
+    * Version: 0.4.15
+    * Version logs added to the manifest for every create / update / delete action 
+
 Tue Jul 26 2011
     * Version: 0.4.14
     * Passing the file name instead of a file-like object (using StringIO) to the RDFXML parser for unicode support 
