@@ -1,0 +1,20 @@
+Source: python-recordsilo
+Section: python
+Priority: extra
+Maintainer: Anusha Ranganathan <anusha.ranganathan@ieee.org>
+Build-Depends: debhelper (>= 7),
+               python-setuptools
+Standards-Version: 3.9.2
+Vcs-Git: git://github.com/anusharanganathan/RecordSilo.git
+Homepage: https://github.com/anusharanganathan/RecordSilo
+Uploaders: Anusha Ranganathan <anusha.ranganathan@ieee.org>
+XS-Python-Version: >= 2.6
+
+Package: python-recordsilo
+Architecture: all
+Depends: ${python:Depends},
+         python-pairtree,
+         python-simplejson
+Description: A local disc pairtree-based silo
+ RecordSilo provides a local disc silo to store digital objects. 
+ It uses a JSON manifest and is a simple datastore based on pairtree.
