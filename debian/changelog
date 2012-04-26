@@ -1,0 +1,62 @@
+python-recordsilo (0.4.15) unstable; urgency=low
+
+  * Version logs added to the manifest for every create / update / delete action 
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Thu, 05 Apr 2012 13:49:36 +0000
+
+
+python-recordsilo (0.4.14) unstable; urgency=low
+
+  * Packaged into Debian
+
+  * Passing the file name instead of a file-like object 
+    (using StringIO) to the RDFXML parser for unicode support
+
+  * Passing a unicode string containing non ascii characters as a 
+    file object to the parser in rdflib throws UnicodeEncodeError 
+    (see http://code.google.com/p/rdflib/issues/detail?id=108). 
+    Format of string is XML. 
+    This is reproducable even in version 3.1.0 of rdflib. 
+    So passing the file name instead to the parser so as to be able 
+    to handle the full rnage of unicode characters in the manifest.
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Mon, 20 Feb 2012 13:49:36 +0000
+
+
+python-recordsilo (0.4.13) unstable; urgency=low
+
+  * Removed the dependency on rdfobject and instead have added 
+    a simple manifesthelper class (which is based on rdfobject)
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Sun, 17 Jul 2011 13:49:36 +0000
+
+
+python-recordsilo (0.4.12) unstable; urgency=low
+
+  * Wrote a helper function del_dir in the RDFRecord class, 
+    to be able to recursively delete directories
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Thu, 16 Jun 2011 13:49:36 +0000
+
+
+python-recordsilo (0.4.11) unstable; urgency=low
+
+  * Can customize the start version for datasets in silos. 
+    The default startversion is 1.
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Fri, 17 Dec 2010 13:49:36 +0000
+
+
+python-recordsilo (0.4.10) unstable; urgency=low
+
+  * Added a function to calculate the disk usage
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Mon, 08 Nov 2010 13:49:36 +0000
+
+
+python-recordsilo (0.4.9) unstable; urgency=low
+
+  * Extended the versioning capabalities. Added functionality 
+    to use symlinks when using copy, clone or increment of version.
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Mon, 29 Oct 2010 13:49:36 +0000

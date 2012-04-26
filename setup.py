@@ -12,5 +12,5 @@ As of version 0.3, it now includes an RDF-enhanced version of the Silo - RDFSilo
       author_email="bosteen@gmail.com / anusha3@gmail.com",
       packages=find_packages(exclude='tests'),
       #install_requires=['pairtree>0.5.4', 'rdfobject>=0.4', 'simplejson', 'datetime'],
-      install_requires=['pairtree>0.5.4', 'simplejson', 'datetime'],
+      install_requires=['pairtree>0.5.4', 'simplejson'],
       )
