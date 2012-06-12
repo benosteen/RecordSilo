@@ -14,7 +14,7 @@ from datetime import datetime
 
 import os
 
-from shutil import copy2
+from shutil import copy2, copytree, rmtree
 
 import simplejson
 
@@ -396,7 +396,15 @@ class HarvestedRecord(object):
             else:
                 raise Exception("Cannot move a directory onto an already existing version")
         version_path = os.path.join(ppath.id_to_dirpath(self.po.id, self.po.fs.pairtree_root), "__%s" % version)
-        os.rename(src_directory, version_path)
+        try:
+            os.rename(src_directory, version_path)
+        except os.error, e:
+            #Doing the following to avoid Invalid cross-device link error in python. 
+            #This occurs when renaming a file if the src and dst are on different file systems 
+            #as Python os cannot handle moving between file systems
+            if os.path.isdir(src_directory) and not os.path.isdir(version_path):
+                copytree(src_directory, version_path, symlinks=True)
+                rmtree(src_directory) 
         self._setup_version_dir(version, date)
         self.manifest['date'] = date
         self._read_date()

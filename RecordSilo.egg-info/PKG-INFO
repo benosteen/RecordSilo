@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: RecordSilo
-Version: 0.4.15
+Version: 0.4.16
 Summary: An adaptation of a pairtree store, each object with simple JSON keyvalue manifest and crude versioning.
 Home-page: UNKNOWN
 Author: Ben O'Steen, Anusha Ranganathan

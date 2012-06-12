@@ -1,3 +1,7 @@
+Tue Jun 12 2012
+    * Version: 0.4.16
+    * replaced os.rename with shutil.copytree as Python cannot handle moving files between file systems
+
 Thu Apr 05 2011
     * Version: 0.4.15
     * Version logs added to the manifest for every create / update / delete action 

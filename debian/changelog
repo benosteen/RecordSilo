@@ -1,3 +1,11 @@
+python-recordsilo (0.4.16) unstable; urgency=low
+
+  * replaced os.rename with shutil.copytree as Python cannot handle moving 
+    files between file systems (Invalid cross-device link error)
+
+ -- Anusha Ranganathan <anusha.ranganathan@ieee.org>  Tue, 12 Jun 2012 14:15:36 +0000
+
+
 python-recordsilo (0.4.15) unstable; urgency=low
 
   * Version logs added to the manifest for every create / update / delete action 
