@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: RecordSilo
+Version: 0.4.16
+Summary: An adaptation of a pairtree store, each object with simple JSON keyvalue manifest and crude versioning.
+Home-page: UNKNOWN
+Author: Ben O'Steen, Anusha Ranganathan
+Author-email: bosteen@gmail.com / anusha3@gmail.com
+License: UNKNOWN
+Description: An adaptation of a pairtree store, each object with simple JSON keyvalue manifest and crude versioning. 
+        Designed to be used as a repository of harvested records from OAI-PMH based services and the like. 
+        As of version 0.3, it now includes an RDF-enhanced version of the Silo - RDFSilo.
+Platform: UNKNOWN

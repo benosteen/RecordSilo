@@ -1,0 +1,14 @@
+README.txt
+setup.py
+RecordSilo.egg-info/PKG-INFO
+RecordSilo.egg-info/SOURCES.txt
+RecordSilo.egg-info/dependency_links.txt
+RecordSilo.egg-info/requires.txt
+RecordSilo.egg-info/top_level.txt
+recordsilo/__init__.py
+recordsilo/manifesthelper.py
+recordsilo/persiststate.py
+recordsilo/rdfmanifest.py
+recordsilo/records.py
+recordsilo/silo.py
+recordsilo/urihelper.py
